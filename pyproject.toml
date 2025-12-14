@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medics-ext-example"
+version = "1.0.0"
+description = "Example extension for MedICS"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+    "medics-extension-sdk @ git+https://github.com/medics-dev/MedICS_Extension_Base.git",
+    "medics @ git+https://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@github.com/Yukun-Guo/MedICS@OpenSource",
+    "PySide6>=6.8.0",
+    "numpy>=1.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+# Note: For local development with MedICS, install medics first:
+#   uv pip install -e /path/to/medics
+# Then install this extension:
+#   uv pip install --no-deps -e .
+#   uv pip install "PySide6>=6.8.0" "numpy>=1.20.0"
+#   uv pip install "git+https://github.com/medics-dev/MedICS_Extension_Base.git"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/medics-ext-example"
+Documentation = "https://github.com/yourusername/medics-ext-example/blob/main/README.md"
+Repository = "https://github.com/yourusername/medics-ext-example.git"
+Issues = "https://github.com/yourusername/medics-ext-example/issues"
+
+[project.entry-points."medics.extensions"]
+example = "medics_ext_example:ExampleExtension"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["medics_ext_example*"]
+
+[tool.setuptools.package-data]
+medics_ext_example = ["resources/**/*"]
