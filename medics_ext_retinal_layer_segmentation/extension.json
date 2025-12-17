@@ -1,0 +1,20 @@
+{
+    "name": "RetinalLayerSegmentation",
+    "version": "1.0.0",
+    "description": "Comprehensive retinal layer segmentation tool with automated analysis and quantitative features",
+    "author": "MedICS Team",
+    "category": "Medical Imaging",
+    "windowed": true,
+    "enabled": true,
+    "main_class": "RetinalLayerSegmentationExtension",
+    "icon": "icon.png",
+    "requirements": [],
+    "metadata": {
+        "extension_type": "toolbox_wrapper",
+        "medical_domain": "Ophthalmology",
+        "imaging_modality": "OCT",
+        "analysis_type": "Layer Segmentation",
+        "documentation": "https://github.com/medics/retinal-layer-segmentation",
+        "license": "MIT"
+    }
+}

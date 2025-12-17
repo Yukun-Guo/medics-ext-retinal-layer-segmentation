@@ -3,11 +3,11 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "medics-ext-example"
+name = "medics-ext-retinal-layer-segmentation"
 version = "1.0.0"
-description = "Example extension for MedICS"
+description = "Retinal Layer Segmentation extension for MedICS"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Extension Developer", email = "developer@example.com"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,9 +26,16 @@ classifiers = [
 
 dependencies = [
     "medics-extension-sdk @ git+https://github.com/medics-dev/MedICS_Extension_Base.git",
-    "medics @ git+https://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@github.com/Yukun-Guo/MedICS@OpenSource",
+    "medics @ git+https://_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@github.com/Yukun-Guo/MedICS.git",
     "PySide6>=6.8.0",
     "numpy>=1.20.0",
+    "vtk>=9.5.2",
+    "onnxruntime==1.18.1; sys_platform == 'darwin'",
+    "onnxruntime-gpu==1.18.1; sys_platform == 'win32' or sys_platform == 'linux'",
+    'GPUtil==1.4.0',
+    "nvidia-cublas-cu12>=12.9.1.4; sys_platform == 'win32' or sys_platform == 'linux'",
+    "nvidia-cuda-runtime-cu12>=12.9.79; sys_platform == 'win32' or sys_platform == 'linux'",
+    "nvidia-cudnn-cu12>=9.16.0.29; sys_platform == 'win32' or sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
@@ -45,17 +52,17 @@ dev = [
 #   uv pip install "git+https://github.com/medics-dev/MedICS_Extension_Base.git"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/medics-ext-example"
-Documentation = "https://github.com/yourusername/medics-ext-example/blob/main/README.md"
-Repository = "https://github.com/yourusername/medics-ext-example.git"
-Issues = "https://github.com/yourusername/medics-ext-example/issues"
+Homepage = "https://github.com/your-github-username/medics-ext-retinal-layer-segmentation"
+Documentation = "https://github.com/your-github-username/medics-ext-retinal-layer-segmentation/blob/main/README.md"
+Repository = "https://github.com/your-github-username/medics-ext-retinal-layer-segmentation.git"
+Issues = "https://github.com/your-github-username/medics-ext-retinal-layer-segmentation/issues"
 
 [project.entry-points."medics.extensions"]
-example = "medics_ext_example:ExampleExtension"
+example = "medics_ext_retinal_layer_segmentation:RetinalLayerSegmentationExtension"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["medics_ext_example*"]
+include = ["medics_ext_retinal_layer_segmentation*"]
 
 [tool.setuptools.package-data]
-medics_ext_example = ["resources/**/*"]
+medics_ext_retinal_layer_segmentation = ["resources/**/*"]

@@ -11,7 +11,6 @@ This guide explains how to create independent MedICS extensions that can be dist
 - [Extension API](#extension-api)
 - [Testing Your Extension](#testing-your-extension)
 - [Publishing Your Extension](#publishing-your-extension)
-- [Bundled vs External Extensions](#bundled-vs-external-extensions)
 - [Examples](#examples)
 
 ## Overview
@@ -30,15 +29,12 @@ MedICS extensions are Python packages that integrate with the MedICS application
 ✅ **Standard Python Packaging** - Uses setuptools entry points  
 ✅ **Automatic Discovery** - MedICS finds and loads extensions automatically  
 ✅ **Version Management** - Each extension has its own version and dependencies  
-✅ **Backward Compatible** - Bundled extensions still work  
 
 ## Extension Discovery
 
-MedICS discovers extensions using three methods (in priority order):
+MedICS discovers extensions using the standard Python plugin mechanism via **setuptools entry points**.
 
-### 1. Entry Points (Recommended) ⭐
-
-The standard Python plugin mechanism. Define in your `pyproject.toml`:
+Define your extension in `pyproject.toml`:
 
 ```toml
 [project.entry-points."medics.extensions"]
@@ -50,20 +46,8 @@ my_extension = "medics_ext_my_extension:MyExtension"
 - Easy distribution via PyPI
 - Automatic discovery
 - Clean separation from MedICS core
-
-### 2. Filesystem (Development/Bundled)
-
-Extensions in `medics/extensions/` directory. Useful for:
-- Development and testing
-- Bundled extensions (deprecated)
-- Local/private extensions
-
-### 3. Priority Rules
-
-When the same extension is found multiple ways:
-- **Entry point** versions take highest priority
-- **Filesystem** versions are skipped if entry point exists
-- First discovered version is used (no duplicates)
+- Version management
+- Dependency isolation
 
 ## Quick Start
 
@@ -523,42 +507,6 @@ python -m twine upload dist/*
 pip install medics-ext-my-extension
 ```
 
-## Bundled vs External Extensions
-
-### Migration Path
-
-MedICS provides a smooth migration path from bundled to external extensions:
-
-| Phase | Bundled Extensions | External Extensions |
-|-------|-------------------|-------------------|
-| **Current** | ✅ Fully supported | ✅ Fully supported |
-| **Near Future** | ⚠️ Deprecated warnings | ✅ Recommended |
-| **Future Major** | ❌ Removed | ✅ Only method |
-
-### Advantages of External Extensions
-
-| Feature | Bundled | External |
-|---------|---------|----------|
-| **Independent versioning** | ❌ | ✅ |
-| **Separate releases** | ❌ | ✅ |
-| **Easy distribution** | ❌ | ✅ |
-| **Own dependencies** | ❌ | ✅ |
-| **PyPI publication** | ❌ | ✅ |
-| **User choice** | ❌ | ✅ |
-| **Easier testing** | ❌ | ✅ |
-
-### Converting Bundled Extension
-
-To convert a bundled extension to external:
-
-1. **Create new package structure** (see Quick Start)
-2. **Copy extension code** to new package
-3. **Update imports** to use new package name
-4. **Add entry point** in pyproject.toml
-5. **Test installation** with `pip install -e .`
-6. **Deprecate bundled version** (add warning)
-7. **Eventually remove** bundled version
-
 ## Examples
 
 ### Example 1: Simple Tool Extension
@@ -680,6 +628,944 @@ class CloudIntegrationExtension(BaseExtension):
         )
         return response.json()
 ```
+
+---
+
+## Advanced Topics
+
+### Extension Architecture
+
+#### Extension Lifecycle
+
+```
+┌─────────────┐
+│  Discovery  │  Extension Manager scans entry points
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│ Registration│  Extension metadata is collected
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│   Loading   │  Extension module is imported
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│ Initialize  │  initialize() called with app_context
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│   Active    │  Widget created when user opens extension
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│   Cleanup   │  cleanup() called on unload/shutdown
+└─────────────┘
+```
+
+#### Extension Discovery
+
+MedICS uses setuptools entry points for extension discovery:
+
+- Extensions are discovered via the `medics.extensions` entry point group
+- Pip-installed packages are automatically found and loaded
+- No manual registration or configuration needed
+
+### Resource Management
+
+#### Loading Extension Resources
+
+Extensions can include additional resources (images, data files, configs):
+
+```python
+from pathlib import Path
+from PySide6 import QtGui
+
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="Resource Demo",
+            author_name="Developer"
+        )
+        # Get extension installation directory
+        self.extension_dir = Path(__file__).parent
+    
+    def load_icon(self, icon_name: str) -> QtGui.QIcon:
+        """Load icon from extension resources."""
+        icon_path = self.extension_dir / "resources" / "icons" / icon_name
+        if icon_path.exists():
+            return QtGui.QIcon(str(icon_path))
+        return QtGui.QIcon()
+    
+    def load_config(self) -> dict:
+        """Load extension configuration."""
+        config_path = self.extension_dir / "config" / "defaults.json"
+        if config_path.exists():
+            import json
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        return {}
+```
+
+#### Package Data in pyproject.toml
+
+Include non-Python files in your package:
+
+```toml
+[project]
+name = "medics-ext-my-extension"
+# ... other fields ...
+
+[tool.setuptools]
+packages = ["medics_ext_my_extension"]
+
+[tool.setuptools.package-data]
+medics_ext_my_extension = [
+    "resources/**/*",
+    "config/*.json",
+    "data/*.csv",
+    "*.qss"  # Qt stylesheets
+]
+```
+
+### Asynchronous Operations
+
+#### Background Tasks
+
+For long-running operations, use Qt's threading capabilities:
+
+```python
+from PySide6 import QtCore
+
+class DataProcessingWorker(QtCore.QThread):
+    """Worker thread for background processing."""
+    progress_updated = QtCore.Signal(int)
+    processing_complete = QtCore.Signal(object)
+    error_occurred = QtCore.Signal(str)
+    
+    def __init__(self, data, processor):
+        super().__init__()
+        self.data = data
+        self.processor = processor
+    
+    def run(self):
+        """Execute processing in background thread."""
+        try:
+            result = self.processor.process(
+                self.data,
+                progress_callback=self.progress_updated.emit
+            )
+            self.processing_complete.emit(result)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="Async Demo",
+            author_name="Developer"
+        )
+        self.worker = None
+    
+    def start_processing(self, data):
+        """Start background processing."""
+        if self.worker and self.worker.isRunning():
+            self.logger.warning("Processing already in progress")
+            return
+        
+        self.worker = DataProcessingWorker(data, self.processor)
+        self.worker.progress_updated.connect(self.on_progress)
+        self.worker.processing_complete.connect(self.on_complete)
+        self.worker.error_occurred.connect(self.on_error)
+        self.worker.start()
+    
+    def cleanup(self):
+        """Ensure worker threads are stopped."""
+        if self.worker and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait()
+        super().cleanup()
+```
+
+#### Async/Await with asyncio
+
+For I/O-bound operations:
+
+```python
+import asyncio
+from PySide6 import QtCore, QtAsyncio
+
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="Async IO Demo",
+            author_name="Developer"
+        )
+    
+    async def fetch_data_async(self, url: str) -> dict:
+        """Async data fetching."""
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                return await response.json()
+    
+    def fetch_data(self, url: str):
+        """Wrapper to call async function from sync context."""
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.fetch_data_async(url))
+```
+
+### Configuration Management
+
+#### Persistent Settings
+
+Extensions can store and retrieve persistent configuration:
+
+```python
+class MyExtension(BaseExtension):
+    def initialize(self, app_context) -> bool:
+        self.app_context = app_context
+        self.config_manager = app_context.get_component("config_manager")
+        
+        # Load extension settings
+        self.load_settings()
+        return True
+    
+    def load_settings(self):
+        """Load extension-specific settings."""
+        # Settings are stored in medics config.ini under extension section
+        section = f"Extension.{self.get_name()}"
+        
+        self.setting1 = self.config_manager.get_value(
+            section, "setting1", "default_value"
+        )
+        self.setting2 = int(self.config_manager.get_value(
+            section, "setting2", "100"
+        ))
+    
+    def save_settings(self):
+        """Save extension settings."""
+        section = f"Extension.{self.get_name()}"
+        
+        self.config_manager.set_value(section, "setting1", self.setting1)
+        self.config_manager.set_value(section, "setting2", str(self.setting2))
+        self.config_manager.save_config()
+    
+    def cleanup(self):
+        """Save settings before cleanup."""
+        self.save_settings()
+        super().cleanup()
+```
+
+### Extension API System
+
+#### Exposing APIs to Python Console
+
+Extensions can expose methods to the MedICS Python console using the `@api_method` decorator:
+
+```python
+from medics_extension_sdk import BaseExtension, api_method
+
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="API Demo",
+            author_name="Developer"
+        )
+        self._data = []
+    
+    @api_method(
+        description="Process input data and return results",
+        category="Data Processing"
+    )
+    def process_data(self, input_data: list, threshold: float = 0.5) -> dict:
+        """Process data with configurable threshold.
+        
+        Args:
+            input_data: List of values to process
+            threshold: Processing threshold (default: 0.5)
+        
+        Returns:
+            dict: Processing results with statistics
+        """
+        try:
+            results = [x for x in input_data if x > threshold]
+            return {
+                "filtered": results,
+                "count": len(results),
+                "mean": sum(results) / len(results) if results else 0
+            }
+        except Exception as e:
+            self.logger.error(f"Processing error: {e}")
+            return {"error": str(e)}
+    
+    @api_method(description="Get extension status")
+    def get_status(self) -> dict:
+        """Get current extension status."""
+        return {
+            "name": self.get_name(),
+            "version": self.get_version(),
+            "data_count": len(self._data),
+            "initialized": self.app_context is not None
+        }
+```
+
+**Usage in Python Console:**
+
+```python
+# Access extension API
+ext = medics.extensions.get_api("api_demo")
+
+# Call API methods
+result = ext.process_data([0.1, 0.6, 0.8, 0.3], threshold=0.4)
+status = ext.get_status()
+
+# List available APIs
+ext.list_apis()
+```
+
+### Testing Strategies
+
+#### Unit Testing
+
+```python
+# tests/test_my_extension.py
+import pytest
+from medics_ext_my_extension import MyExtension
+
+class MockAppContext:
+    """Mock application context for testing."""
+    def __init__(self):
+        self.components = {}
+    
+    def get_component(self, name: str):
+        return self.components.get(name)
+
+@pytest.fixture
+def extension():
+    """Create extension instance for testing."""
+    ext = MyExtension()
+    ext.initialize(MockAppContext())
+    yield ext
+    ext.cleanup()
+
+def test_extension_metadata(extension):
+    """Test extension metadata."""
+    assert extension.get_name() == "My Extension"
+    assert extension.get_version().startswith("1.")
+    assert len(extension.get_description()) > 0
+
+def test_data_processing(extension):
+    """Test data processing functionality."""
+    result = extension.process_data([1, 2, 3])
+    assert result is not None
+    assert "processed" in result
+
+def test_widget_creation(extension):
+    """Test widget creation."""
+    widget = extension.create_widget()
+    assert widget is not None
+    widget.deleteLater()
+```
+
+#### Integration Testing
+
+```python
+# tests/test_integration.py
+import pytest
+from PySide6 import QtWidgets
+from medics_ext_my_extension import MyExtension
+
+@pytest.fixture
+def app(qapp):
+    """Create Qt application for testing."""
+    return qapp
+
+def test_extension_ui_integration(app):
+    """Test extension UI integration."""
+    ext = MyExtension()
+    ext.initialize(MockAppContext())
+    
+    widget = ext.create_widget()
+    widget.show()
+    
+    # Test UI interactions
+    button = widget.findChild(QtWidgets.QPushButton, "processButton")
+    assert button is not None
+    
+    # Simulate button click
+    button.click()
+    
+    # Verify results
+    # ... test specific UI behavior
+    
+    widget.close()
+    ext.cleanup()
+```
+
+#### Running Tests
+
+```bash
+# Install test dependencies
+pip install pytest pytest-qt pytest-cov
+
+# Run all tests
+pytest tests/
+
+# Run with coverage
+pytest --cov=medics_ext_my_extension tests/
+
+# Run specific test file
+pytest tests/test_my_extension.py -v
+
+# Run specific test
+pytest tests/test_my_extension.py::test_extension_metadata -v
+```
+
+### Performance Optimization
+
+#### Lazy Loading
+
+Load resources only when needed:
+
+```python
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="Lazy Demo",
+            author_name="Developer"
+        )
+        self._model = None  # Lazy-loaded ML model
+    
+    @property
+    def model(self):
+        """Lazy-load ML model."""
+        if self._model is None:
+            self.logger.info("Loading ML model...")
+            import tensorflow as tf
+            self._model = tf.keras.models.load_model(
+                self.extension_dir / "models" / "model.h5"
+            )
+        return self._model
+    
+    def predict(self, data):
+        """Make prediction using lazy-loaded model."""
+        return self.model.predict(data)
+```
+
+#### Caching Results
+
+```python
+from functools import lru_cache
+
+class MyExtension(BaseExtension):
+    @lru_cache(maxsize=100)
+    def expensive_computation(self, param: str) -> dict:
+        """Cache expensive computations."""
+        # Expensive operation here
+        result = self._compute(param)
+        return result
+    
+    def cleanup(self):
+        """Clear cache on cleanup."""
+        self.expensive_computation.cache_clear()
+        super().cleanup()
+```
+
+### Security Best Practices
+
+#### Input Validation
+
+```python
+class MyExtension(BaseExtension):
+    def process_file(self, file_path: str) -> bool:
+        """Process file with validation."""
+        from pathlib import Path
+        
+        # Validate file path
+        path = Path(file_path)
+        
+        # Check file exists
+        if not path.exists():
+            self.logger.error(f"File not found: {file_path}")
+            return False
+        
+        # Check file extension
+        allowed_extensions = {'.dcm', '.nii', '.png', '.jpg'}
+        if path.suffix.lower() not in allowed_extensions:
+            self.logger.error(f"Unsupported file type: {path.suffix}")
+            return False
+        
+        # Check file size (e.g., max 100 MB)
+        max_size = 100 * 1024 * 1024
+        if path.stat().st_size > max_size:
+            self.logger.error("File too large")
+            return False
+        
+        # Process file
+        return self._safe_process(path)
+```
+
+#### Secure Configuration
+
+```python
+class MyExtension(BaseExtension):
+    def initialize(self, app_context) -> bool:
+        self.app_context = app_context
+        
+        # Load API key from secure config
+        config = app_context.get_component("config_manager")
+        api_key = config.get_value("MyExtension", "api_key", "")
+        
+        if not api_key:
+            self.logger.warning(
+                "API key not configured. "
+                "Set it in config.ini under [MyExtension] section."
+            )
+            return False
+        
+        # Don't log sensitive data
+        self.api_key = api_key
+        self.logger.info("Extension initialized with credentials")
+        return True
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Extension Not Discovered
+
+**Problem:** Extension doesn't appear in MedICS after installation.
+
+**Solutions:**
+
+1. **Verify installation:**
+   ```bash
+   pip list | grep medics-ext
+   ```
+
+2. **Check entry point registration:**
+   ```bash
+   python -c "import importlib.metadata; print(list(importlib.metadata.entry_points(group='medics.extensions')))"
+   ```
+
+3. **Verify entry point in pyproject.toml:**
+   ```toml
+   [project.entry-points."medics.extensions"]
+   my_extension = "medics_ext_my_extension:MyExtension"
+   ```
+
+4. **Reinstall in development mode:**
+   ```bash
+   pip install -e .
+   ```
+
+5. **Check MedICS logs:**
+   ```
+   Look for "Extension discovery" messages in the console or log file
+   ```
+
+#### Import Errors
+
+**Problem:** `ModuleNotFoundError` or `ImportError` when loading extension.
+
+**Solutions:**
+
+1. **Check dependencies in pyproject.toml:**
+   ```toml
+   [project]
+   dependencies = [
+       "medics-extension-sdk>=1.0.0",
+       "PySide6>=6.0.0",
+       "numpy>=1.20.0",
+       # ... other dependencies
+   ]
+   ```
+
+2. **Install missing dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Check Python version compatibility:**
+   ```toml
+   [project]
+   requires-python = ">=3.8"
+   ```
+
+4. **Verify module structure:**
+   ```
+   medics_ext_my_extension/
+   ├── __init__.py  ← Must export extension class
+   └── ...
+   ```
+
+#### Widget Not Displaying
+
+**Problem:** Extension loads but widget doesn't show or appears blank.
+
+**Solutions:**
+
+1. **Check `create_widget()` returns QWidget:**
+   ```python
+   def create_widget(self, parent=None, **kwargs):
+       widget = MyWidget(parent)  # Must be QWidget subclass
+       return widget  # Must return the widget!
+   ```
+
+2. **Verify widget has layout:**
+   ```python
+   class MyWidget(QtWidgets.QWidget):
+       def __init__(self, parent=None):
+           super().__init__(parent)
+           layout = QtWidgets.QVBoxLayout(self)  # Set layout
+           # Add widgets to layout
+   ```
+
+3. **Check for initialization errors:**
+   ```python
+   def create_widget(self, parent=None, **kwargs):
+       try:
+           widget = MyWidget(parent, self.app_context)
+           return widget
+       except Exception as e:
+           self.logger.error(f"Widget creation failed: {e}")
+           raise
+   ```
+
+#### Logger Not Working
+
+**Problem:** Log messages don't appear in console.
+
+**Solutions:**
+
+1. **Use inherited logger:**
+   ```python
+   class MyExtension(BaseExtension):
+       def __init__(self):
+           super().__init__(
+               extension_name="My Extension",
+               author_name="Developer"
+           )
+           # self.logger is automatically created by BaseExtension
+       
+       def initialize(self, app_context) -> bool:
+           self.logger.info("Initialization started")  # ✓ Correct
+           # Don't create new logger
+           return True
+   ```
+
+2. **Check log level:**
+   ```python
+   import logging
+   self.logger.setLevel(logging.DEBUG)  # Show all messages
+   ```
+
+#### Configuration Not Persisting
+
+**Problem:** Extension settings are lost after restart.
+
+**Solutions:**
+
+1. **Save configuration on changes:**
+   ```python
+   def save_settings(self):
+       config = self.app_context.get_component("config_manager")
+       section = f"Extension.{self.get_name()}"
+       config.set_value(section, "key", "value")
+       config.save_config()  # ← Don't forget this!
+   ```
+
+2. **Save in cleanup:**
+   ```python
+   def cleanup(self):
+       self.save_settings()
+       super().cleanup()
+   ```
+
+#### Memory Leaks
+
+**Problem:** Memory usage grows over time.
+
+**Solutions:**
+
+1. **Clean up resources in `cleanup()`:**
+   ```python
+   def cleanup(self):
+       # Close files
+       if hasattr(self, 'file_handle'):
+           self.file_handle.close()
+       
+       # Stop threads
+       if hasattr(self, 'worker') and self.worker:
+           self.worker.quit()
+           self.worker.wait()
+       
+       # Clear caches
+       if hasattr(self, 'cache'):
+           self.cache.clear()
+       
+       # Delete large objects
+       self._large_data = None
+       
+       super().cleanup()
+   ```
+
+2. **Disconnect signals:**
+   ```python
+   def cleanup(self):
+       # Disconnect all signals
+       if self.worker:
+           self.worker.progress_updated.disconnect()
+           self.worker.finished.disconnect()
+       super().cleanup()
+   ```
+
+3. **Delete widgets properly:**
+   ```python
+   def cleanup(self):
+       if self.widget:
+           self.widget.deleteLater()  # Qt-safe deletion
+           self.widget = None
+       super().cleanup()
+   ```
+
+#### API Methods Not Available in Console
+
+**Problem:** `@api_method` decorated methods don't show up in Python console.
+
+**Solutions:**
+
+1. **Verify decorator import:**
+   ```python
+   from medics_extension_sdk import api_method  # ✓ Correct
+   ```
+
+2. **Check decorator syntax:**
+   ```python
+   @api_method(description="Method description")
+   def my_method(self):  # ← Must be instance method
+       pass
+   ```
+
+3. **Ensure extension is loaded:**
+   ```python
+   # In Python console
+   medics.extensions.list_loaded()  # Check if extension is loaded
+   ```
+
+4. **Widget must be created before API access:**
+   ```python
+   # Open extension UI first, then:
+   ext = medics.extensions.get_api("my_extension")
+   ```
+
+### Debugging Tips
+
+#### Enable Debug Logging
+
+```python
+class MyExtension(BaseExtension):
+    def __init__(self):
+        super().__init__(
+            extension_name="My Extension",
+            author_name="Developer"
+        )
+        # Enable debug logging
+        import logging
+        self.logger.setLevel(logging.DEBUG)
+        
+        # Add file handler for persistent logs
+        handler = logging.FileHandler('my_extension.log')
+        handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        self.logger.addHandler(handler)
+```
+
+#### Use Assertions for Development
+
+```python
+def process_data(self, data):
+    assert data is not None, "Data cannot be None"
+    assert len(data) > 0, "Data cannot be empty"
+    assert isinstance(data, list), f"Expected list, got {type(data)}"
+    
+    # Process data
+    return result
+```
+
+#### Profile Performance
+
+```python
+import cProfile
+import pstats
+
+def profile_function(self):
+    profiler = cProfile.Profile()
+    profiler.enable()
+    
+    # Code to profile
+    result = self.expensive_operation()
+    
+    profiler.disable()
+    stats = pstats.Stats(profiler)
+    stats.sort_stats('cumulative')
+    stats.print_stats(20)  # Top 20 functions
+    
+    return result
+```
+
+---
+
+## Best Practices
+
+### Code Organization
+
+✅ **DO:**
+- Separate UI code into dedicated modules (`ui/` directory)
+- Use meaningful class and method names
+- Keep `__init__.py` focused on the extension class
+- Group related functionality into submodules
+
+```
+medics_ext_my_extension/
+├── __init__.py           # Extension class only
+├── core/                 # Core logic
+│   ├── processor.py
+│   └── analyzer.py
+├── ui/                   # UI components
+│   ├── main_widget.py
+│   └── dialogs.py
+└── utils/                # Utilities
+    └── helpers.py
+```
+
+❌ **DON'T:**
+- Put all code in `__init__.py`
+- Mix UI and business logic
+- Use cryptic abbreviations
+
+### Error Handling
+
+✅ **DO:**
+```python
+def process_file(self, path: str) -> bool:
+    try:
+        data = self.load_file(path)
+        result = self.process_data(data)
+        self.save_result(result)
+        return True
+    except FileNotFoundError:
+        self.logger.error(f"File not found: {path}")
+        return False
+    except PermissionError:
+        self.logger.error(f"Permission denied: {path}")
+        return False
+    except Exception as e:
+        self.logger.error(f"Unexpected error: {e}", exc_info=True)
+        return False
+```
+
+❌ **DON'T:**
+```python
+def process_file(self, path: str):
+    # Silent failures
+    try:
+        data = self.load_file(path)
+    except:
+        pass
+    
+    # Unhandled exceptions
+    result = self.process_data(data)  # May crash
+```
+
+### Documentation
+
+✅ **DO:**
+- Write clear docstrings for all public methods
+- Include type hints
+- Document parameters and return values
+- Provide usage examples
+
+```python
+def process_image(
+    self,
+    image: np.ndarray,
+    threshold: float = 0.5,
+    method: str = "otsu"
+) -> np.ndarray:
+    """Process image with specified method.
+    
+    Args:
+        image: Input image as numpy array (H, W) or (H, W, C)
+        threshold: Binarization threshold, 0.0 to 1.0 (default: 0.5)
+        method: Processing method, one of ['otsu', 'adaptive', 'manual']
+    
+    Returns:
+        Processed image as numpy array with same shape as input
+    
+    Raises:
+        ValueError: If threshold is out of range or method is invalid
+    
+    Example:
+        >>> ext = MyExtension()
+        >>> result = ext.process_image(img, threshold=0.7, method='otsu')
+    """
+```
+
+### Version Management
+
+✅ **DO:**
+- Follow semantic versioning (MAJOR.MINOR.PATCH)
+- Document changes in CHANGELOG.md
+- Update version in `__init__.py` or `pyproject.toml`
+
+```python
+# __init__.py
+__version__ = "1.2.3"
+
+# CHANGELOG.md
+## [1.2.3] - 2025-12-13
+### Fixed
+- Fixed memory leak in image processing
+### Added
+- Added batch processing support
+```
+
+### Dependency Management
+
+✅ **DO:**
+- Pin major versions, allow minor updates
+- List all runtime dependencies
+- Separate development dependencies
+
+```toml
+[project]
+dependencies = [
+    "medics-extension-sdk>=1.0.0,<2.0.0",
+    "PySide6>=6.0.0,<7.0.0",
+    "numpy>=1.20.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-qt>=4.0.0",
+    "black>=22.0.0",
+    "mypy>=0.950",
+]
+```
+
+❌ **DON'T:**
+- Use unpinned dependencies (`numpy>=1.0`)
+- Mix runtime and dev dependencies
+- Forget to specify `medics-extension-sdk`
+
+---
 
 ## Additional Resources
 

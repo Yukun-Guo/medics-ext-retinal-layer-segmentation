@@ -126,6 +126,27 @@ pip install --index-url https://test.pypi.org/simple/ medics-ext-example
 python -m twine upload dist/*
 ```
 
+## Debugging with VS Code (F5)
+
+You can debug your extension in VS Code by opening the generated extension folder as the workspace and pressing F5.
+
+- The included `.vscode/launch.json` has a configuration named `Run MedICS (this extension) - F5` that:
+   - Launches MedICS with `python -m medics`.
+   - Sets `cwd` to the repository root (workspace parent) so MedICS finds its resources.
+   - Adds both the extension folder and its parent to `PYTHONPATH` so MedICS can import the extension without installing it.
+   - Provides an alternate configuration `Run MedICS (this extension) - F5 (Use workspace .venv)` which attempts to use `${workspaceFolder}/.venv/bin/python` as the interpreter.
+
+How to use:
+
+1. Open the extension folder (the folder you created with the template) in VS Code.
+2. Ensure your workspace has a `.venv` if you want to use the venv configuration, or select the interpreter in the status bar.
+3. Press F5 (Run → Start Debugging). The `Run MedICS (this extension) - F5` configuration will start MedICS and load your extension.
+
+Notes:
+
+- If you prefer a specific virtual environment, create a `.env` file in the extension folder and export variables or adjust the interpreter in VS Code's Python selector.
+- The venv debug configuration will use `${workspaceFolder}/.venv/bin/python` if present; otherwise select the interpreter manually.
+
 ## Entry Point Configuration
 
 The entry point in `pyproject.toml` tells MedICS where to find your extension:

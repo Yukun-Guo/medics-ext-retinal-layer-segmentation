@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Debug in MedICS - F5",
+      "type": "python",
+      "request": "launch",
+      "module": "medics",
+      "cwd": "${workspaceFolder}/..",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/.."
+      },
+      "console": "integratedTerminal",
+      "args": [],
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/.env"
+    }
+    ,
+  ]
+}
+ 
