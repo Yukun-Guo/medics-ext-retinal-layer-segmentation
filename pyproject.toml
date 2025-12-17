@@ -33,9 +33,6 @@ dependencies = [
     "onnxruntime==1.18.1; sys_platform == 'darwin'",
     "onnxruntime-gpu==1.18.1; sys_platform == 'win32' or sys_platform == 'linux'",
     'GPUtil==1.4.0',
-    "nvidia-cublas-cu12>=12.9.1.4; sys_platform == 'win32' or sys_platform == 'linux'",
-    "nvidia-cuda-runtime-cu12>=12.9.79; sys_platform == 'win32' or sys_platform == 'linux'",
-    "nvidia-cudnn-cu12>=9.16.0.29; sys_platform == 'win32' or sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
