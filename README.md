@@ -24,6 +24,16 @@ cd medics-ext-retinal-layer-segmentation
 pip install -e .
 ```
 
+**Note:** This package includes a large model file (~107 MB). The installation may take a few moments to complete as it includes all necessary model files.
+
+### Verifying Installation
+
+To verify that all files (including the large model file) are properly installed:
+
+```bash
+python verify_package.py
+```
+
 ## Usage
 
 1. Install MedICS and this extension

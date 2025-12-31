@@ -62,4 +62,10 @@ where = ["."]
 include = ["medics_ext_retinal_layer_segmentation*"]
 
 [tool.setuptools.package-data]
-medics_ext_retinal_layer_segmentation = ["resources/**/*"]
+medics_ext_retinal_layer_segmentation = [
+    "resources/**/*",
+    "model/*.enc",
+    "*.ui",
+    "*.ini",
+    "*.json",
+]

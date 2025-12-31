@@ -1,0 +1,22 @@
+# Include package metadata and documentation
+include README.md
+include LICENSE
+include pyproject.toml
+
+# Include all UI files
+recursive-include medics_ext_retinal_layer_segmentation *.ui
+
+# Include configuration files
+recursive-include medics_ext_retinal_layer_segmentation *.ini
+recursive-include medics_ext_retinal_layer_segmentation *.json
+
+# Include model files (important for large .enc file)
+recursive-include medics_ext_retinal_layer_segmentation/model *.enc
+
+# Include resources
+recursive-include medics_ext_retinal_layer_segmentation/resources *
+
+# Exclude compiled Python files and caches
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
