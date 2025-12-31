@@ -10,8 +10,8 @@ recursive-include medics_ext_retinal_layer_segmentation *.ui
 recursive-include medics_ext_retinal_layer_segmentation *.ini
 recursive-include medics_ext_retinal_layer_segmentation *.json
 
-# Include model files (important for large .enc file)
-recursive-include medics_ext_retinal_layer_segmentation/model *.enc
+# Include model chunk files and metadata
+recursive-include medics_ext_retinal_layer_segmentation/model/chunks *
 
 # Include resources
 recursive-include medics_ext_retinal_layer_segmentation/resources *

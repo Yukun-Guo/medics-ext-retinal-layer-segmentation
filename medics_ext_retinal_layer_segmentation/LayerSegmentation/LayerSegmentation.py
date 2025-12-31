@@ -20,6 +20,10 @@ from PySide6.QtWidgets import (
 )
 from scipy.interpolate import PchipInterpolator
 import logging
+
+# Import model reassembly module
+from ..model_reassembly import get_model_file_path
+
 logger = logging.getLogger(__name__)
 
 # VTK imports with error handling
@@ -1192,12 +1196,21 @@ class LayerSegmentation(QWidget):
             self.parentWindow.ui.statusbar.repaint()
             try:
                 self._update_progress_dialog(msg, 10, "Loading AI model...")
-                # Get extension directory relative to this file
-                extension_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                # Get model file path using reassembly module
                 if input_channels == 1:
+                    # Get extension directory for sparse model
+                    extension_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     model_path = os.path.join(extension_dir, "model", "layersegmodel_sparse.enc")
                 else:
-                    model_path = os.path.join(extension_dir, "model", "layersegmodel.enc")
+                    # Use reassembly module for main model
+                    model_path_obj = get_model_file_path()
+                    if model_path_obj is None:
+                        raise RuntimeError(
+                            "Failed to load model file. The model may not have been "
+                            "properly reassembled from chunks. Please reinstall the package."
+                        )
+                    model_path = str(model_path_obj)
+                
                 model_buffer = utils.loadDLModel(model_path)
                 self.ort_session = create_onnx_session(model_buffer, device_id=self.controlPanel.comboBox_gpu.currentIndex(), prefer_gpu=True, optimization_level="basic")
                 

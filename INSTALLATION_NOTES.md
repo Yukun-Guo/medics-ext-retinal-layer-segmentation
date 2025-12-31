@@ -1,72 +1,95 @@
-# Installation Guide for Large Model Files
+# Installation Guide for Large Model Files (Chunked Approach)
 
-This document explains how the `layersegmodel.enc` file (107 MB) is included when users install this package via pip from source code.
+This document explains how the `layersegmodel.enc` file (107 MB) is split into smaller chunks and automatically reassembled when users install and use this package.
 
-## Configuration Changes Made
+## Overview
 
-### 1. Updated `pyproject.toml`
+The large model file has been split into 3 chunks, each under 50 MB:
+- `layersegmodel.part000` - 45 MB
+- `layersegmodel.part001` - 45 MB  
+- `layersegmodel.part002` - 17 MB
+- `layersegmodel.meta.json` - metadata for reassembly
 
-The `[tool.setuptools.package-data]` section now includes:
-```toml
-[tool.setuptools.package-data]
-medics_ext_retinal_layer_segmentation = [
-    "resources/**/*",
-    "model/*.enc",      # ← This ensures model files are included
-    "*.ui",
-    "*.ini",
-    "*.json",
-]
-```
-
-### 2. Created `MANIFEST.in`
-
-This file explicitly declares which files should be included in source distributions:
-```
-recursive-include medics_ext_retinal_layer_segmentation/model *.enc
-```
+**Total:** ~107 MB when reassembled
 
 ## How It Works
 
-When users install the package via pip from source:
+### For Package Maintainers
 
+1. **Splitting the Model File** (one-time operation):
+   ```bash
+   python split_model_file.py
+   ```
+   This creates chunks in `medics_ext_retinal_layer_segmentation/model/chunks/`
+
+2. **Commit Only the Chunks**:
+   - The original `.enc` file is in `.gitignore`
+   - Only the chunks and metadata are tracked in git
+   - Each chunk is under 50 MB, suitable for GitHub and PyPI
+
+### For End Users
+
+When users install the package:
 ```bash
 pip install git+https://github.com/your-username/medics-ext-retinal-layer-segmentation.git
 ```
 
-Or from a local clone:
+The following happens automatically:
 
-```bash
-git clone https://github.com/your-username/medics-ext-retinal-layer-segmentation.git
-cd medics-ext-retinal-layer-segmentation
-pip install .
+1. **Package Installation**: Chunks are copied to the installation directory
+2. **First Import**: When the package is imported:
+   ```python
+   import medics_ext_retinal_layer_segmentation
+   ```
+   The `__init__.py` triggers reassembly
+3. **Automatic Reassembly**: 
+   - Chunks are combined into `layersegmodel.enc`
+   - MD5 checksums verify integrity
+   - File is cached for subsequent uses
+4. **Runtime Usage**: The extension uses `get_model_file_path()` to access the model
+
+## Configuration Files
+
+### 1. `pyproject.toml`
+```toml
+[tool.setuptools.package-data]
+medics_ext_retinal_layer_segmentation = [
+    "model/chunks/*",  # Include all chunk files and metadata
+    ...
+]
 ```
 
-The following happens:
+### 2. `MANIFEST.in`
+```
+recursive-include medics_ext_retinal_layer_segmentation/model/chunks *
+```
 
-1. **setuptools** reads `pyproject.toml` and `MANIFEST.in`
-2. The `package-data` configuration tells setuptools to include `model/*.enc` files
-3. The `MANIFEST.in` ensures the file is included in source distributions
-4. The 107 MB `layersegmodel.enc` file is copied to the installation location
+### 3. `.gitignore`
+```
+# Exclude the reassembled model file (auto-generated)
+medics_ext_retinal_layer_segmentation/model/layersegmodel.enc
+```
 
 ## Testing
 
-To verify the configuration works correctly:
+To verify the reassembly process works correctly:
 
-1. **Check files are present locally:**
+1. **Run the test script:**
    ```bash
-   python verify_package.py
+   python test_reassembly.py
    ```
+   This simulates the full reassembly process and verifies integrity.
 
 2. **Test building the package:**
    ```bash
    pip install build
    python -m build
    ```
-   This creates a `.whl` file and `.tar.gz` file in the `dist/` directory.
+   Creates distributable `.whl` and `.tar.gz` files.
 
-3. **Verify the model file is in the wheel:**
+3. **Verify chunks are in the wheel:**
    ```bash
-   unzip -l dist/*.whl | grep layersegmodel.enc
+   unzip -l dist/*.whl | grep "model/chunks"
    ```
 
 4. **Test installation in a clean environment:**
@@ -74,8 +97,40 @@ To verify the configuration works correctly:
    python -m venv test_env
    source test_env/bin/activate
    pip install .
-   python -c "from pathlib import Path; import medics_ext_retinal_layer_segmentation; pkg_path = Path(medics_ext_retinal_layer_segmentation.__file__).parent; model_file = pkg_path / 'model' / 'layersegmodel.enc'; print(f'Model file exists: {model_file.exists()}'); print(f'Size: {model_file.stat().st_size / 1024 / 1024:.2f} MB' if model_file.exists() else 'N/A')"
+   python -c "from medics_ext_retinal_layer_segmentation.model_reassembly import get_model_file_path; print(f'Model ready: {get_model_file_path() is not None}')"
    ```
+
+## Technical Details
+
+### File Structure
+```
+medics_ext_retinal_layer_segmentation/
+├── model/
+│   ├── chunks/
+│   │   ├── layersegmodel.part000    (45 MB)
+│   │   ├── layersegmodel.part001    (45 MB)
+│   │   ├── layersegmodel.part002    (17 MB)
+│   │   └── layersegmodel.meta.json  (metadata)
+│   └── layersegmodel.enc            (auto-generated, 107 MB)
+└── model_reassembly.py              (reassembly logic)
+```
+
+### Reassembly Process
+
+1. **On Package Import**: `__init__.py` calls `ensure_model_ready()`
+2. **Check Existing File**: If `layersegmodel.enc` exists and passes MD5 verification, skip reassembly
+3. **Load Metadata**: Read `layersegmodel.meta.json` for chunk information
+4. **Verify Chunks**: Check MD5 of each chunk before reassembly
+5. **Combine Chunks**: Sequentially append chunks to create the full file
+6. **Final Verification**: Verify the reassembled file's MD5 matches the original
+7. **Cache**: Subsequent calls use the reassembled file without reprocessing
+
+### Thread Safety
+
+The `ModelFileManager` uses:
+- Singleton pattern to ensure one instance
+- Thread locks for concurrent access protection
+- Atomic file operations
 
 ## Important Notes
 

@@ -24,14 +24,14 @@ cd medics-ext-retinal-layer-segmentation
 pip install -e .
 ```
 
-**Note:** This package includes a large model file (~107 MB). The installation may take a few moments to complete as it includes all necessary model files.
+**Note:** This package includes a large model file (~107 MB) split into smaller chunks for easier distribution. The model file will be automatically reassembled from chunks on first use.
 
 ### Verifying Installation
 
-To verify that all files (including the large model file) are properly installed:
+To verify that the model file reassembly works correctly:
 
 ```bash
-python verify_package.py
+python test_reassembly.py
 ```
 
 ## Usage

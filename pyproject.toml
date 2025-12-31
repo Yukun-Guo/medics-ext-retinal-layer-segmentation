@@ -64,7 +64,7 @@ include = ["medics_ext_retinal_layer_segmentation*"]
 [tool.setuptools.package-data]
 medics_ext_retinal_layer_segmentation = [
     "resources/**/*",
-    "model/*.enc",
+    "model/chunks/*",
     "*.ui",
     "*.ini",
     "*.json",

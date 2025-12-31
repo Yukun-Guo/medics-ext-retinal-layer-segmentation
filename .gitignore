@@ -4,3 +4,9 @@ dist
 .venv
 *.log
 __pycache__
+
+# Exclude the reassembled model file (will be auto-generated from chunks)
+medics_ext_retinal_layer_segmentation/model/layersegmodel.enc
+
+# Keep the chunks and metadata
+!medics_ext_retinal_layer_segmentation/model/chunks/
