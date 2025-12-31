@@ -27,9 +27,9 @@ classifiers = [
 dependencies = [
     "medics-extension-sdk @ git+https://github.com/medics-dev/MedICS_Extension_Base.git",
     "medics @ git+https://_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@github.com/Yukun-Guo/MedICS.git",
-    "PySide6>=6.8.0",
+    "PySide6==6.8.2.1",
     "numpy>=1.20.0",
-    "vtk>=9.5.2",
+    "vtk>=9.3.1",
     "onnxruntime==1.18.1; sys_platform == 'darwin'",
     "onnxruntime-gpu==1.18.1; sys_platform == 'win32' or sys_platform == 'linux'",
     'GPUtil==1.4.0',
