@@ -1214,30 +1214,6 @@ class LayerSegmentation(QWidget):
                 model_buffer = utils.loadDLModel(model_path)
                 self.ort_session = create_onnx_session(model_buffer, device_id=self.controlPanel.comboBox_gpu.currentIndex(), prefer_gpu=True, optimization_level="basic")
                 
-                # sess_options = ort.SessionOptions()
-                # sess_options.graph_optimization_level = (
-                #     ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
-                # )
-                # self.ort_session = ort.InferenceSession(
-                #     model_buffer,
-                #     sess_options=sess_options,
-                #     providers=[
-                #         (
-                #             "CUDAExecutionProvider",
-                #             {
-                #                 "device_id": self.controlPanel.comboBox_gpu.currentIndex()
-                #             },
-                #         ),
-                #         "CoreMLExecutionProvider",
-                #         "CPUExecutionProvider",
-                #     ],
-                # )
-
-                # warm up
-                # self._update_progress_dialog(msg, 20, "Warming up...")
-                # self.ort_session.run(
-                #     None, {"input": np.zeros((1, 128, 128, input_channels), dtype=np.float32)}
-                # )
             except:
                 self._update_progress_dialog(msg, 99, "Load AI model failed!")
                 self.parentWindow.ui.statusbar.showMessage(
