@@ -68,4 +68,5 @@ medics_ext_retinal_layer_segmentation = [
     "*.ui",
     "*.ini",
     "*.json",
+    "*.png",
 ]
