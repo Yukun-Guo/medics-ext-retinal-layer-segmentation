@@ -1,24 +1,24 @@
 {
   "original_filename": "layersegmodel.enc",
-  "original_size": 112021033,
-  "original_md5": "ff3ba3d93ba63ed2a75f4920bda7674b",
+  "original_size": 111880262,
+  "original_md5": "34d49c1f67314c2996ea1b5ffc160046",
   "chunk_size": 47185920,
   "total_chunks": 3,
   "chunks": [
     {
       "filename": "layersegmodel.part000",
       "size": 47185920,
-      "md5": "0ebcae2a8ef85a1a1e4ef53c42987405"
+      "md5": "7915fb9daff66e487ca35d9d7c0002d1"
     },
     {
       "filename": "layersegmodel.part001",
       "size": 47185920,
-      "md5": "1bf41b72c795d9de7182378024be5e8a"
+      "md5": "28f32691c5ee720b86e73cc567e4c6e5"
     },
     {
       "filename": "layersegmodel.part002",
-      "size": 17649193,
-      "md5": "185691b08942d19a77ceef166096028e"
+      "size": 17508422,
+      "md5": "ada881fe8f9cf422907d935c99522674"
     }
   ]
 }

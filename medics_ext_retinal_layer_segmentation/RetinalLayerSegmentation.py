@@ -187,6 +187,9 @@ class RetinalLayerSegmentation(QMainWindow):
         # tabs
         self.LayerSegmentation = None
         self.gCurve_data = None
+        
+        # Track drag state to prevent spurious dragLeaveEvent warnings
+        self._drag_active = False
 
         self.setupUI()
 
@@ -199,6 +202,10 @@ class RetinalLayerSegmentation(QMainWindow):
         
         # Enable drag and drop for the main window to accept variables from Variable Tree
         self.setAcceptDrops(True)
+        # Also enable on centralwidget to ensure events can reach the main window
+        self.ui.centralwidget.setAcceptDrops(True)
+        # Install event filter on centralwidget to intercept drag events before child widgets
+        self.ui.centralwidget.installEventFilter(self)
         self.ui.pushButton_update_resolution.clicked.connect(self.updateResolutionDlg)
         self.ui.comboBox_flatten.wheelEvent = lambda event: event.ignore()
         self.ui.comboBox_flatten.keyPressEvent = lambda event: event.ignore()
@@ -1790,9 +1797,137 @@ class RetinalLayerSegmentation(QMainWindow):
         logger.info("Loading Data from Folder %s", folderPath)
         pass
 
+    def _scan_directory_for_files(self, directory: str) -> List[str]:
+        """
+        Recursively scan directory for supported volume files.
+        
+        Args:
+            directory: Directory path to scan
+            
+        Returns:
+            List of file paths matching supported extensions
+        """
+        supported_extensions = tuple(
+            self.oct_file_extensions + self.octa_file_extensions + self.seg_file_extensions
+        )
+        found_files = []
+        
+        try:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    if file.lower().endswith(supported_extensions):
+                        found_files.append(os.path.join(root, file))
+        except Exception as e:
+            logger.error("Error scanning directory: %s", e)
+        
+        return found_files
+    
+    def load_dropped_volume_files(self, volume_files: List[str], data_type: str = "OCT"):
+        """
+        Load dropped volume files (OCT or OCTA).
+        
+        Args:
+            volume_files: List of file paths to load
+            data_type: "OCT" or "OCTA"
+        """
+        try:
+            if not volume_files:
+                return
+            
+            # Use the first file for now
+            file_path = volume_files[0]
+            
+            if data_type == "OCT":
+                self.ui.lineEdit_OCTFilename.setText(file_path)
+                self.ui.comboBox_OCT.setCurrentIndex(0)  # Set to "Local File"
+            elif data_type == "OCTA":
+                self.ui.lineEdit_OCTAFilename.setText(file_path)
+                self.ui.comboBox_OCTA.setCurrentIndex(0)  # Set to "Local File"
+            
+            # Load the data
+            self.loadData()
+            
+            if len(volume_files) > 1:
+                self.ui.statusbar.showMessage(
+                    f"Loaded 1 of {len(volume_files)} {data_type} file(s). Additional files ignored.", 
+                    5000
+                )
+            else:
+                self.ui.statusbar.showMessage(f"Loaded {data_type} file via drag-drop", 3000)
+            
+            logger.info("Loaded %d %s file(s) via drag-drop", len(volume_files), data_type)
+            
+        except Exception as e:
+            logger.exception("Error loading dropped %s files: %s", data_type, e)
+            QMessageBox.critical(self, "Error", f"Failed to load {data_type} files:\n{str(e)}")
+    
+    def load_dropped_seg_files(self, seg_files: List[str]):
+        """
+        Load dropped segmentation files.
+        
+        Args:
+            seg_files: List of segmentation file paths to load
+        """
+        try:
+            if not seg_files:
+                return
+            
+            # Use the first file for now
+            file_path = seg_files[0]
+            
+            self.ui.lineEdit_SegFilename.setText(file_path)
+            self.ui.comboBox_Seg.setCurrentIndex(0)  # Set to "Local File"
+            
+            # Load the data
+            self.loadData()
+            
+            if len(seg_files) > 1:
+                self.ui.statusbar.showMessage(
+                    f"Loaded 1 of {len(seg_files)} segmentation file(s). Additional files ignored.", 
+                    5000
+                )
+            else:
+                self.ui.statusbar.showMessage("Loaded segmentation file via drag-drop", 3000)
+            
+            logger.info("Loaded %d segmentation file(s) via drag-drop", len(seg_files))
+            
+        except Exception as e:
+            logger.exception("Error loading dropped segmentation files: %s", e)
+            QMessageBox.critical(self, "Error", f"Failed to load segmentation files:\n{str(e)}")
+
+    def eventFilter(self, obj, event):
+        """
+        Intercept drag events before child widgets can consume them.
+        This ensures the main window gets first chance to handle drag operations.
+        """
+        from PySide6.QtCore import QEvent
+        
+        # Only intercept events from centralwidget to avoid recursion
+        if obj == self.ui.centralwidget:
+            if event.type() == QEvent.Type.DragEnter:
+                self.dragEnterEvent(event)
+                return True  # Prevent event propagation to child widgets
+            elif event.type() == QEvent.Type.DragMove:
+                self.dragMoveEvent(event)
+                return True
+            elif event.type() == QEvent.Type.Drop:
+                self.dropEvent(event)
+                return True
+            elif event.type() == QEvent.Type.DragLeave:
+                self.dragLeaveEvent(event)
+                return True
+        
+        return super().eventFilter(obj, event)
+
     def dragEnterEvent(self, event):
-        """Handle drag enter event - accept variable drops from Variable Tree."""
-        if event.mimeData().hasText():
+        """Handle drag enter event - accept file and variable drops."""
+        self._drag_active = True
+        
+        if event.mimeData().hasUrls():
+            # File drops
+            event.acceptProposedAction()
+            self.ui.statusbar.showMessage("Drop files here to load them", 0)
+        elif event.mimeData().hasText():
             # Check if it's a variable from workspace (starts with "ws.")
             text = event.mimeData().text()
             if text.startswith("ws."):
@@ -1801,32 +1936,100 @@ class RetinalLayerSegmentation(QMainWindow):
                 self.ui.statusbar.showMessage("Drop variable here to load it", 0)
             else:
                 event.ignore()
+                self._drag_active = False
         else:
             event.ignore()
+            self._drag_active = False
+    
+    def dragMoveEvent(self, event):
+        """Handle drag move event."""
+        event.acceptProposedAction()
     
     def dragLeaveEvent(self, event):
-        """Handle drag leave event - reset visual feedback."""
-        self.ui.statusbar.clearMessage()
-        event.accept()
+        """Handle drag leave event - only process if drag was active."""
+        if self._drag_active:
+            self._drag_active = False
+            self.ui.statusbar.clearMessage()
+            event.accept()
     
     def dropEvent(self, event):
-        """Handle drop event - load variable from Variable Tree.
+        """Handle drop event - load files or variables from Variable Tree.
         
-        Accepts 3D numpy arrays as OCT or OCTA data.
-        Shows dialog to ask user which type of data to load.
+        Accepts:
+        - Files (.foct, .oct, .dcm, .img, .mat, .ssada, .octa, .json, etc.)
+        - Directories (scanned recursively for supported files)
+        - 3D numpy arrays as OCT or OCTA data from workspace
+        - Segmentation data from workspace
         """
-        text = event.mimeData().text()
-        self.ui.statusbar.clearMessage()
-        
-        if not text.startswith("ws."):
-            event.ignore()
+        if not self._drag_active:
             return
         
-        # Extract variable name (remove "ws." prefix)
-        var_name = text[3:]  # Remove "ws." prefix
+        self._drag_active = False
         
-        # Get the variable data from workspace
         try:
+            mime_data = event.mimeData()
+            
+            # Handle file drops
+            if mime_data.hasUrls():
+                files = [url.toLocalFile() for url in mime_data.urls()]
+                oct_files = []
+                octa_files = []
+                seg_files = []
+                
+                # Categorize files
+                for file_path in files:
+                    if os.path.isdir(file_path):
+                        # Recursively scan directory for files
+                        found_files = self._scan_directory_for_files(file_path)
+                        # Re-categorize found files
+                        for f in found_files:
+                            f_lower = f.lower()
+                            if f_lower.endswith(tuple(self.oct_file_extensions)):
+                                oct_files.append(f)
+                            elif f_lower.endswith(tuple(self.octa_file_extensions)):
+                                octa_files.append(f)
+                            elif f_lower.endswith(tuple(self.seg_file_extensions)):
+                                seg_files.append(f)
+                    else:
+                        file_lower = file_path.lower()
+                        if file_lower.endswith(tuple(self.oct_file_extensions)):
+                            oct_files.append(file_path)
+                        elif file_lower.endswith(tuple(self.octa_file_extensions)):
+                            octa_files.append(file_path)
+                        elif file_lower.endswith(tuple(self.seg_file_extensions)):
+                            seg_files.append(file_path)
+                
+                # Load categorized files
+                if oct_files:
+                    self.load_dropped_volume_files(oct_files, "OCT")
+                if octa_files:
+                    self.load_dropped_volume_files(octa_files, "OCTA")
+                if seg_files:
+                    self.load_dropped_seg_files(seg_files)
+                    
+                if oct_files or octa_files or seg_files:
+                    event.acceptProposedAction()
+                    self.ui.statusbar.clearMessage()
+                else:
+                    self.ui.statusbar.showMessage("No supported files found in dropped items", 5000)
+                return
+            
+            # Handle workspace variable drops
+            if not mime_data.hasText():
+                event.ignore()
+                return
+                
+            text = mime_data.text()
+            self.ui.statusbar.clearMessage()
+            
+            if not text.startswith("ws."):
+                event.ignore()
+                return
+            
+            # Extract variable name (remove "ws." prefix)
+            var_name = text[3:]  # Remove "ws." prefix
+            
+            # Get the variable data from workspace
             workspace_data = {}
             if self.app_context:
                 workspace_manager = self.app_context.get_component("workspace_manager")
