@@ -31,7 +31,8 @@ dependencies = [
     "numpy>=1.20.0",
     "vtk>=9.3.1",
     "onnxruntime==1.18.1; sys_platform == 'darwin'",
-    "onnxruntime-directml>=1.19.0,<1.20.0; platform_system=='Windows' or platform_system=='Linux'",
+#    "onnxruntime-directml>=1.19.0,<1.20.0; sys_platform == 'win32'",
+    "onnxruntime-gpu==1.18.1; sys_platform == 'linux' or sys_platform == 'win32'",
     "GPUtil==1.4.0",
 ]
 

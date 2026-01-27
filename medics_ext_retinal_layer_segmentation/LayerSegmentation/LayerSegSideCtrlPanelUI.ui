@@ -110,7 +110,7 @@
            </size>
           </property>
           <property name="text">
-           <string>GPU Device:</string>
+           <string>Device:</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -298,7 +298,7 @@
          <string>Keep Fluid volume</string>
         </property>
         <property name="checked">
-         <bool>true</bool>
+         <bool>false</bool>
         </property>
        </widget>
       </item>

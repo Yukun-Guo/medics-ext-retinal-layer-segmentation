@@ -17,6 +17,12 @@ except ImportError:
     ONNXRUNTIME_AVAILABLE = False
     logging.warning("ONNX Runtime is not installed. AI features will be disabled.")
 
+try:
+    import GPUtil
+    GPUTIL_AVAILABLE = True
+except ImportError:
+    GPUTIL_AVAILABLE = False
+
 # Module logger
 logger = logging.getLogger(__name__)
 
@@ -268,6 +274,139 @@ def create_onnx_session(model_path_or_bytes: Union[str, bytes],
     return onnx_provider_manager.create_inference_session(
         model_path_or_bytes, device_id, prefer_gpu, optimization_level
     )
+
+
+def _get_cuda_gpu_names() -> List[Tuple[int, str]]:
+    """
+    Get CUDA GPU names using multiple detection methods.
+    
+    Returns:
+        List of tuples (device_id, gpu_name)
+    """
+    gpu_list = []
+    
+    # Method 1: Try GPUtil (simple and reliable)
+    if GPUTIL_AVAILABLE:
+        try:
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                for gpu in gpus:
+                    gpu_list.append((gpu.id, gpu.name))
+                return gpu_list
+        except Exception as e:
+            logger.debug("GPUtil CUDA detection failed: %s", e)
+    
+    # Method 2: Try PyTorch
+    try:
+        import torch
+        if torch.cuda.is_available():
+            num_gpus = torch.cuda.device_count()
+            for i in range(num_gpus):
+                gpu_name = torch.cuda.get_device_name(i)
+                gpu_list.append((i, gpu_name))
+            return gpu_list
+    except (ImportError, Exception) as e:
+        logger.debug("PyTorch CUDA detection failed: %s", e)
+    
+    # Method 3: Try pynvml (NVIDIA Management Library)
+    try:
+        import pynvml
+        pynvml.nvmlInit()
+        device_count = pynvml.nvmlDeviceGetCount()
+        for i in range(device_count):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            gpu_name = pynvml.nvmlDeviceGetName(handle)
+            # Decode if bytes
+            if isinstance(gpu_name, bytes):
+                gpu_name = gpu_name.decode('utf-8')
+            gpu_list.append((i, gpu_name))
+        pynvml.nvmlShutdown()
+        return gpu_list
+    except (ImportError, Exception) as e:
+        logger.debug("pynvml CUDA detection failed: %s", e)
+    
+    # Fallback: Return generic entry for device 0
+    logger.info("Could not detect specific GPU names, using generic CUDA device")
+    return [(0, 'NVIDIA GPU')]
+
+
+def _get_directml_gpu_name() -> str:
+    """
+    Get DirectML GPU name (Windows).
+    
+    Returns:
+        GPU name string
+    """
+    try:
+        # Try using Windows Management Instrumentation
+        import subprocess
+        result = subprocess.run(
+            ['wmic', 'path', 'win32_VideoController', 'get', 'name'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            # Skip header and get first GPU
+            if len(lines) > 1:
+                gpu_name = lines[1].strip()
+                if gpu_name:
+                    return gpu_name
+    except Exception as e:
+        logger.debug("Failed to get DirectML GPU name: %s", e)
+    
+    return 'DirectML GPU'
+
+
+def get_available_devices() -> List[Dict[str, Any]]:
+    """
+    Get available devices for ONNX inference in a user-friendly format.
+    
+    Returns:
+        List of device dictionaries with 'name' and 'provider' keys.
+        GPU devices are listed first, CPU last.
+    """
+    devices = []
+    
+    if not ONNXRUNTIME_AVAILABLE:
+        return [{'name': 'CPU', 'provider': 'CPUExecutionProvider', 'device_id': -1}]
+    
+    # Check for CUDA devices
+    if 'CUDAExecutionProvider' in onnx_provider_manager.available_providers:
+        gpu_list = _get_cuda_gpu_names()
+        for device_id, gpu_name in gpu_list:
+            devices.append({
+                'name': f'GPU {device_id}: {gpu_name}',
+                'provider': 'CUDAExecutionProvider',
+                'device_id': device_id
+            })
+    
+    # Check for DirectML (Windows GPU acceleration)
+    if 'DmlExecutionProvider' in onnx_provider_manager.available_providers:
+        gpu_name = _get_directml_gpu_name()
+        devices.append({
+            'name': f'{gpu_name} (DirectML)',
+            'provider': 'DmlExecutionProvider',
+            'device_id': 0
+        })
+    
+    # Check for CoreML (macOS)
+    if 'CoreMLExecutionProvider' in onnx_provider_manager.available_providers:
+        devices.append({
+            'name': 'Apple GPU (CoreML)',
+            'provider': 'CoreMLExecutionProvider',
+            'device_id': 0
+        })
+    
+    # Always add CPU as last option
+    devices.append({
+        'name': 'CPU',
+        'provider': 'CPUExecutionProvider',
+        'device_id': -1
+    })
+    
+    return devices
 
 
 def log_system_info() -> None:

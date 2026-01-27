@@ -138,7 +138,7 @@ class Ui_LayerSegSideControlPanel(object):
 
         self.checkBox_keep_fluid = QCheckBox(self.groupBox_3)
         self.checkBox_keep_fluid.setObjectName(u"checkBox_keep_fluid")
-        self.checkBox_keep_fluid.setChecked(True)
+        self.checkBox_keep_fluid.setChecked(False)
 
         self.verticalLayout_7.addWidget(self.checkBox_keep_fluid)
 
@@ -576,7 +576,7 @@ class Ui_LayerSegSideControlPanel(object):
         self.checkBox_sparse.setToolTip(QCoreApplication.translate("LayerSegSideControlPanel", u"<html><head/><body><p>Enable sparse mode to perform segmentation. This mode is suitable for sparse sanning OCT data. </p></body></html>", None))
 #endif // QT_CONFIG(tooltip)
         self.checkBox_sparse.setText(QCoreApplication.translate("LayerSegSideControlPanel", u"Sparse data mode", None))
-        self.label_30.setText(QCoreApplication.translate("LayerSegSideControlPanel", u"GPU Device:", None))
+        self.label_30.setText(QCoreApplication.translate("LayerSegSideControlPanel", u"Device:", None))
         self.label_4.setText(QCoreApplication.translate("LayerSegSideControlPanel", u"Corrector:", None))
         self.comboBox_corrector.setItemText(0, QCoreApplication.translate("LayerSegSideControlPanel", u"None", None))
         self.comboBox_corrector.setItemText(1, QCoreApplication.translate("LayerSegSideControlPanel", u"Liner", None))

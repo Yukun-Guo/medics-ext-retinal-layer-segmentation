@@ -1947,7 +1947,7 @@ dependencies = [
     { name = "medics-extension-sdk" },
     { name = "numpy" },
     { name = "onnxruntime", marker = "sys_platform == 'darwin'" },
-    { name = "onnxruntime-directml", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "onnxruntime-gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "pyside6" },
     { name = "vtk" },
 ]
@@ -1965,7 +1965,7 @@ requires-dist = [
     { name = "medics-extension-sdk", git = "https://github.com/medics-dev/MedICS_Extension_Base.git?rev=main" },
     { name = "numpy", specifier = ">=1.20.0" },
     { name = "onnxruntime", marker = "sys_platform == 'darwin'", specifier = "==1.18.1" },
-    { name = "onnxruntime-directml", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=1.19.0,<1.20.0" },
+    { name = "onnxruntime-gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = "==1.18.1" },
     { name = "pyside6", specifier = "==6.8.2.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
@@ -2243,8 +2243,8 @@ wheels = [
 ]
 
 [[package]]
-name = "onnxruntime-directml"
-version = "1.19.2"
+name = "onnxruntime-gpu"
+version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coloredlogs" },
@@ -2255,9 +2255,12 @@ dependencies = [
     { name = "sympy" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/07/66d5e70168babf14e562ff929cb1ff75e2e93ea6b40e6ddeac2cd77da235/onnxruntime_directml-1.19.2-cp310-cp310-win_amd64.whl", hash = "sha256:49c30e59115333655eb7863293c55a318e755abfd4801f3e187a2bd66c63e22a", size = 22543632, upload-time = "2024-09-04T06:38:17.609Z" },
-    { url = "https://files.pythonhosted.org/packages/28/b5/0c82f5e13f39a3df747b08a27c86b42a509981182f3c16a8f77d05c6ea7f/onnxruntime_directml-1.19.2-cp311-cp311-win_amd64.whl", hash = "sha256:04cb32c21d793c5da4ad02d733149cc0af5b8a12553dfb95022fabb0f618a991", size = 22546203, upload-time = "2024-09-04T06:38:21.254Z" },
-    { url = "https://files.pythonhosted.org/packages/98/4a/5b1adf189552fa427c5897c3f03c76a34fd505e37ebbdf1ac0b370a304d2/onnxruntime_directml-1.19.2-cp312-cp312-win_amd64.whl", hash = "sha256:4c35977c60c7de88b90375c9eaa0c9087171bbe702cf9c7c78837022049dc811", size = 22547052, upload-time = "2024-09-04T06:38:25.488Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/52/fa9ba5a69cfed82ba1765882f50664b05c26982f55fec6edd1bda700195f/onnxruntime_gpu-1.18.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e9de7b8c7c975f7830d1e9323daca2090408df821f2adc10ea267b4f469b59e0", size = 200801022, upload-time = "2024-06-27T23:54:11.167Z" },
+    { url = "https://files.pythonhosted.org/packages/39/9b/665165a418bc45f1bc54561e19063a24b7fc2814ff5cd56e7601321e183d/onnxruntime_gpu-1.18.1-cp310-cp310-win_amd64.whl", hash = "sha256:7622a5979bb64a6631f888439b6ac8b11fbdd47da980425c697b82d4dd04b427", size = 157670940, upload-time = "2024-06-27T23:54:21.697Z" },
+    { url = "https://files.pythonhosted.org/packages/92/2e/5c6a3c94a8e4794a0ad1ba00f5b86c89673f271f43c77f537a90db4472c0/onnxruntime_gpu-1.18.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:af2d3ee6fba72b57abf6f379b8aca30ee773959d4346271e7d92557dd5cf2901", size = 200794895, upload-time = "2024-06-27T23:54:33.274Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/78/ec2a3948600b1d3297d055d5a52175d71f45f1b2b41da749cf39973036b1/onnxruntime_gpu-1.18.1-cp311-cp311-win_amd64.whl", hash = "sha256:e40ba43771043fe286fea38b2c6549d1cc4b2b5b424624163c923163a8dc27ac", size = 157666628, upload-time = "2024-06-27T23:54:45.869Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/81/c364ca9c0b2260a38c7bc026b8a74e6bb8caa9e4fcc9f20438558b942b0f/onnxruntime_gpu-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:87d1884523f485f40d3a126677a9f93fc15569dd817fc753ee7fc519142a4425", size = 200797176, upload-time = "2024-06-27T23:54:56.48Z" },
+    { url = "https://files.pythonhosted.org/packages/31/f0/84034a7592937f02ca3c671e50b767f86a721959619635fe40ffa14031e0/onnxruntime_gpu-1.18.1-cp312-cp312-win_amd64.whl", hash = "sha256:3f2ab38a62350965f5007111728410b3ef25213104dd1e7d61ecc158002ea3f5", size = 157671367, upload-time = "2024-06-27T23:55:06.979Z" },
 ]
 
 [[package]]

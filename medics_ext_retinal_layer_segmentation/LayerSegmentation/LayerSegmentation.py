@@ -61,7 +61,7 @@ except ImportError as e:
     VTK_AVAILABLE = False
 
 import onnxruntime as ort
-from ..utils.onnx_provider_utils import create_onnx_session, get_optimal_providers
+from ..utils.onnx_provider_utils import create_onnx_session, get_available_devices
 from .LayerSegmentationUI import (
     Ui_LayerSegmentation,
 )
@@ -72,9 +72,7 @@ from ..utils.curveeditorplot import CurveEditorPlot
 from ..utils.indicatorPlot import IndicatorPlot
 from ..utils.utils import utils
 
-from typing import Any
-
-import GPUtil
+from typing import Any, Optional, Dict, List
 
 pg.setConfigOption("background", "{}{:02x}".format("#151515", 60))
 
@@ -283,6 +281,9 @@ class LayerSegmentation(QWidget):
         self.indicatorDirection_enfaceB = 1
         self.upper_boundry_min = 0
         self.lower_boundry_max = 0
+        
+        # Store available device information for ONNX inference
+        self.available_devices: List[Dict[str, Any]] = []
     
         self.setupUI()
 
@@ -296,11 +297,17 @@ class LayerSegmentation(QWidget):
         self.LayerSegCtrlPanelWidget = QWidget()
         self.controlPanel.setupUi(self.LayerSegCtrlPanelWidget)
 
-        # set gpu device
-        gpus = GPUtil.getGPUs()
-        if gpus:
-            for gpu in gpus:
-                self.controlPanel.comboBox_gpu.addItem(f"GPU {gpu.id} ({gpu.name})")
+        # Set up device selection using onnx_provider_utils
+        # Add AUTO option first for automatic device selection
+        self.controlPanel.comboBox_gpu.addItem("AUTO")
+        self.available_devices = get_available_devices()
+        
+        # Populate combobox with available devices
+        for device in self.available_devices:
+            self.controlPanel.comboBox_gpu.addItem(device['name'])
+        
+        # Set AUTO as default selection
+        self.controlPanel.comboBox_gpu.setCurrentIndex(0)
 
         self.controlPanel.comboBox_gpu.currentIndexChanged.connect(self.onGPU_changed)
         # set up Pyqtgraph ui elements
@@ -379,6 +386,8 @@ class LayerSegmentation(QWidget):
         self.controlPanel.pushButton_ai_seg.clicked.connect(self.on_AISeg)
         self.controlPanel.checkBox_sparse.setVisible(False)
         self.controlPanel.checkBox_sparse.clicked.connect(self.onSparseCheckBoxChanged)
+        
+        self.controlPanel.checkBox_keep_fluid.setVisible(False)
 
         self.gr_wid_bf_a = pg.GraphicsLayoutWidget()
         self.gr_wid_bf_a.setMaximumWidth(3000)
@@ -1158,9 +1167,13 @@ class LayerSegmentation(QWidget):
 
     @Slot()
     def onGPU_changed(self) -> None:
-        """Handle GPU selection changes."""
-        # set the GPU index
+        """Handle GPU/device selection changes."""
+        # Clear session to force reload with new device
         self.ort_session = None
+        
+        # Log device selection
+        device_name = self.controlPanel.comboBox_gpu.currentText()
+        logger.info(f"Device selection changed to: {device_name}")
 
     @Slot()
     def onSparseCheckBoxChanged(self) -> None:
@@ -1212,7 +1225,29 @@ class LayerSegmentation(QWidget):
                     model_path = str(model_path_obj)
                 
                 model_buffer = utils.loadDLModel(model_path)
-                self.ort_session = create_onnx_session(model_buffer, device_id=self.controlPanel.comboBox_gpu.currentIndex(), prefer_gpu=True, optimization_level="basic")
+                
+                # Determine device settings based on combobox selection
+                selected_index = self.controlPanel.comboBox_gpu.currentIndex()
+                
+                if selected_index == 0:  # AUTO mode
+                    # Let onnx_provider_utils automatically select the best device
+                    device_id = 0
+                    prefer_gpu = True
+                    logger.info("Using AUTO device selection - best available device will be chosen")
+                else:
+                    # Use specific device selected by user
+                    # Adjust index to account for AUTO option at index 0
+                    device_info = self.available_devices[selected_index - 1]
+                    device_id = device_info['device_id']
+                    prefer_gpu = device_info['provider'] != 'CPUExecutionProvider'
+                    logger.info(f"Using device: {device_info['name']} (provider: {device_info['provider']}, device_id: {device_id})")
+                
+                self.ort_session = create_onnx_session(
+                    model_buffer, 
+                    device_id=device_id, 
+                    prefer_gpu=prefer_gpu, 
+                    optimization_level="basic"
+                )
                 
             except:
                 self._update_progress_dialog(msg, 99, "Load AI model failed!")
