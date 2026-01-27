@@ -66,7 +66,6 @@ include = ["medics_ext_retinal_layer_segmentation*"]
 medics_ext_retinal_layer_segmentation = [
     "resources/**/*",
     "model/chunks/*",
-    "*.ui",
     "*.ini",
     "*.json",
     "*.png",
