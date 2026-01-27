@@ -6,14 +6,12 @@ including automated layer detection, analysis, and quantitative measurements.
 """
 from typing import Optional
 from PySide6 import QtWidgets
-import platform
 import os
-import subprocess
 import numpy as np
 import onnxruntime as ort
 from medics_extension_sdk import BaseExtension
 from .RetinalLayerSegmentation import RetinalLayerSegmentation
-from .utils.onnx_provider_utils import create_onnx_session
+from .utils.onnx_provider_utils import create_onnx_session, get_available_devices
 import logging
 
 # Module logger
@@ -76,63 +74,30 @@ class RetinalLayerSegmentationExtension(BaseExtension):
         """Create the extension's main widget."""
         # Create a regular widget instead of a dialog for tab display
         return RetinalLayerSegmentation(parentWindow=parent, app_context=self.app_context, **kwargs)
-
+    
     @staticmethod
     def get_first_available_gpu() -> int:
-        """Detect and return the first available GPU device ID.
+        """Detect and return the first available accelerator device ID.
         
-        This method checks for GPU availability across different platforms:
-        - CUDA (NVIDIA) on Linux, Windows
-        - Metal Performance Shaders (MPS) on macOS
-        - DirectML on Windows
+        This method checks for accelerator availability across different platforms:
+        - CUDA on Windows/Linux (NVIDIA GPUs)
+        - DirectML on Windows (all GPU vendors)
         - CoreML on macOS
         
         Returns:
-            int: The device ID of the first available GPU (0 if found, -1 if no GPU available).
+            int: The device ID of the first available accelerator (0 if found, -1 if no accelerator available).
         """
-        system = platform.system().lower()
-        available_providers = ort.get_available_providers()
+        # Use the provider utilities to get available devices
+        devices = get_available_devices()
         
-        logger.info("Detecting first available GPU. Platform: %s, Available providers: %s", system, available_providers)
+        # Find the first GPU device (non-CPU)
+        for device in devices:
+            if device['provider'] != 'CPUExecutionProvider':
+                device_id = device.get('device_id', 0)
+                logger.info("GPU accelerator available: %s (device_id: %d)", device['name'], device_id)
+                return device_id
         
-        # Check for CUDA (NVIDIA GPUs) - works on Linux and Windows
-        if 'CUDAExecutionProvider' in available_providers:
-            try:
-                # Try to detect CUDA devices
-                result = subprocess.run(
-                    ['nvidia-smi', '-L'], 
-                    capture_output=True, 
-                    text=True, 
-                    timeout=5,
-                    check=False
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    gpu_count = len([line for line in result.stdout.strip().split('\n') if line.startswith('GPU')])
-                    if gpu_count > 0:
-                        logger.info("Found %d CUDA GPU(s). Using device 0.", gpu_count)
-                        return 0
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
-                logger.debug("Could not query NVIDIA GPUs: %s", e)
-                # Even if nvidia-smi fails, CUDA provider might still work
-                logger.info("CUDA provider available, defaulting to device 0")
-                return 0
-        
-        # Check for platform-specific GPU providers
-        if system == 'darwin':  # macOS
-            # Check for CoreML or Metal
-            if 'CoreMLExecutionProvider' in available_providers:
-                logger.info("CoreML provider available on macOS. Using device 0.")
-                return 0
-            # Note: Metal (MPS) support in ONNX Runtime typically uses CUDA provider interface
-            
-        elif system == 'windows':
-            # Check for DirectML (Windows GPU acceleration)
-            if 'DmlExecutionProvider' in available_providers:
-                logger.info("DirectML provider available on Windows. Using device 0.")
-                return 0
-        
-        # No GPU found
-        logger.warning("No GPU device detected. Will fall back to CPU.")
+        logger.warning("No GPU accelerator detected. Will fall back to CPU.")
         return -1
     
     @staticmethod
@@ -159,14 +124,21 @@ class RetinalLayerSegmentationExtension(BaseExtension):
             # Auto-detect first available GPU if device_id is -1
             if device_id == -1:
                 logger.info("device_id=-1 specified. Auto-detecting first available GPU...")
-                detected_device_id = RetinalLayerSegmentationExtension.get_first_available_gpu()
-                if detected_device_id == -1:
+                available_devices = get_available_devices()
+                
+                # Find first GPU device (non-CPU)
+                gpu_device = next(
+                    (dev for dev in available_devices if dev['device_id'] != -1),
+                    None
+                )
+                
+                if gpu_device is None:
                     logger.warning("No GPU detected. Falling back to CPU execution.")
                     prefer_gpu = False
                     device_id = 0  # Use 0 as default, but prefer_gpu=False will use CPU
                 else:
-                    device_id = detected_device_id
-                    logger.info("Auto-detected GPU device_id: %d", device_id)
+                    device_id = gpu_device['device_id']
+                    logger.info("Auto-detected GPU: %s (device_id: %d)", gpu_device['name'], device_id)
             
             # Get extension directory relative to this file
             extension_dir = os.path.dirname(os.path.abspath(__file__))
