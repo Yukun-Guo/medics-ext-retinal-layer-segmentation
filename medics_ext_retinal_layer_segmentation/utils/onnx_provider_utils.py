@@ -32,7 +32,18 @@ class ONNXProviderManager:
         self.available_providers = []
         self.recommended_providers = []
         if ONNXRUNTIME_AVAILABLE:
-            self.available_providers = ort.get_available_providers()
+            try:
+                # Some versions of onnxruntime may not have this method
+                if hasattr(ort, 'get_available_providers'):
+                    self.available_providers = ort.get_available_providers()
+                else:
+                    # Fallback for older/incomplete installations
+                    logger.warning("onnxruntime.get_available_providers() not available. Using CPU fallback.")
+                    self.available_providers = ['CPUExecutionProvider']
+            except Exception as e:
+                logger.error(f"Failed to query ONNX Runtime providers: {e}")
+                self.available_providers = ['CPUExecutionProvider']
+            
             self._determine_recommended_providers()
     
     def _determine_recommended_providers(self) -> None:
@@ -48,15 +59,20 @@ class ONNXProviderManager:
             if self._test_cuda_provider():
                 self.recommended_providers.insert(0, 'CUDAExecutionProvider')
             else:
-                logging.warning("CUDAExecutionProvider is available but not working properly. Using CPU fallback.")
+                logger.warning("CUDAExecutionProvider is available but not working properly. Using CPU fallback.")
+        
+        # Add DirectML provider (Windows GPU acceleration)
+        if 'DmlExecutionProvider' in self.available_providers:
+            # DirectML has higher priority than CPU but lower than CUDA
+            if 'CUDAExecutionProvider' not in self.recommended_providers:
+                self.recommended_providers.insert(0, 'DmlExecutionProvider')
+            else:
+                self.recommended_providers.insert(1, 'DmlExecutionProvider')
         
         # Add platform-specific providers
         if system == 'darwin':  # macOS
             if 'CoreMLExecutionProvider' in self.available_providers:
                 self.recommended_providers.insert(-1, 'CoreMLExecutionProvider')
-        elif system == 'windows':
-            if 'DmlExecutionProvider' in self.available_providers:
-                self.recommended_providers.insert(-1, 'DmlExecutionProvider')
         
         # Log recommendation
         logger.info("Recommended ONNX providers: %s", self.recommended_providers)
@@ -94,13 +110,21 @@ class ONNXProviderManager:
         
         providers = []
         
-        if prefer_gpu and 'CUDAExecutionProvider' in self.recommended_providers:
-            # Add CUDA with specific device
-            providers.append(('CUDAExecutionProvider', {'device_id': device_id}))
+        if prefer_gpu:
+            # Add CUDA with specific device if available
+            if 'CUDAExecutionProvider' in self.recommended_providers:
+                providers.append(('CUDAExecutionProvider', {'device_id': device_id}))
+            
+            # Add DirectML with device if available (DirectML also supports device_id)
+            elif 'DmlExecutionProvider' in self.recommended_providers:
+                providers.append(('DmlExecutionProvider', {'device_id': device_id}))
         
-        # Add other recommended providers (excluding CUDA if already added)
+        # Add other recommended providers (excluding those already added)
         for provider in self.recommended_providers:
-            if provider != 'CUDAExecutionProvider':
+            if provider not in ['CUDAExecutionProvider', 'DmlExecutionProvider']:
+                providers.append(provider)
+            elif not prefer_gpu:
+                # If not preferring GPU, add GPU providers without device specification
                 providers.append(provider)
             elif not prefer_gpu:
                 # If not preferring GPU, add CUDA without device specification
